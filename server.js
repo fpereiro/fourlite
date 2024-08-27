@@ -23,6 +23,8 @@ var sleep = async function (ms) {
 */
 dale.async = async function (input, fun, options) {
 
+   if (input === undefined) return [];
+
    if (teishi.simple (input)) input = [input];
 
    var options = options || {};

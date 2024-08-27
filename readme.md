@@ -67,6 +67,100 @@ But it'd probably be a good idea to change `REPLACE_ME` with a better password, 
 
 ## Logs
 
+### Sending logs to fourlite through monkey-patching
+
+**Monkey patching your frontend application**
+
+If `FOURLITE_CONFIG` is defined and its value is the path to Fourlite (for example, `localhost:2626`), you can send all the browser traffic that goes through the `fetch` function, like this:
+
+```javascript
+  if (FOURLITE_CONFIG) {
+    const originalFetch = fetch;
+
+    const fourlite = async function (body: object) {
+      await originalFetch (FOURLITE_CONFIG, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify (body),
+      });
+    }
+
+    window.fetch = async function (req, options) {
+
+      const path = req instanceof Request ? req.url : req;
+      let requestBody: any;
+
+      if (req instanceof Request) {
+        requestBody = await req.clone().text();
+      } else if (typeof req === "string") {
+        if (options && options.body) {
+            if (typeof options.body === "string") {
+                requestBody = options.body;
+            } else {
+                requestBody = await new Response(options.body).text();
+            }
+        }
+      }
+
+      if (requestBody) {
+        try {
+          requestBody = JSON.parse (requestBody);
+        }
+        catch (error) {
+          console.log ('Ignore');
+        }
+      }
+
+      const t = Date.now ();
+      const reqId = parseInt ((Math.random () + '').slice (2, 8)).toString (16);
+
+      if (path !== FOURLITE_CONFIG) fourlite ({
+        t: Date.now (),
+        logs: [
+          {
+            reqId,
+            method: options ? options.method : 'GET',
+            path,
+            reqHeaders: req instanceof Request ? req.headers : (options ? options.headers : undefined),
+            reqBody: requestBody,
+          }
+        ],
+        tags: ['UI'],
+      });
+
+      const res = await originalFetch (req, options);
+
+      const clonedResponse = res.clone ();
+      let responseBody = await clonedResponse.text ();
+      if (responseBody) {
+        try {
+          responseBody = JSON.parse (responseBody);
+        }
+        catch (error) {
+          console.log ('Ignore');
+        }
+      }
+
+      if (path !== FOURLITE_CONFIG) fourlite ({
+        t: Date.now (),
+        logs: [
+          {
+            reqId,
+            method: options ? options.method : 'GET',
+            path,
+            code: res.status,
+            resHeaders: res.headers,
+            resBody: responseBody,
+            duration: Date.now () - t,
+          }
+        ],
+        tags: ['UI'],
+      });
+      return res;
+    }
+  }
+```
+
 ### Store logs
 
 This is how logs look in the DB:

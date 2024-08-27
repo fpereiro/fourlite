@@ -160,7 +160,7 @@ views.logResult = function () {
                   var nestedTable = function (obj) {
                      var columns = dale.keys (obj).sort ();
                      return ['table', [
-                        ['tr', dale.go (columns, function (k) {return ['th', k]})],
+                        ['tr', dale.go (columns, function (k) {return ['th', type (k) === 'integer' ? k + 1 : k]})],
                         ['tr', dale.go (columns, function (k) {
                            var v = obj [k];
                            if (teishi.simple (v)) {
