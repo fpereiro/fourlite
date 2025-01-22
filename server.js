@@ -51,6 +51,7 @@ dale.async = async function (input, fun, options) {
    dale.go (dale.times (Math.min (keys.length, options.concurrent)), next);
 
    while (done < keys.length) {
+      if (errored) return;
       await sleep (1);
    }
 
