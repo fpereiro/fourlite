@@ -24,35 +24,38 @@ var sleep = async function (ms) {
 dale.async = async function (input, fun, options) {
 
    if (input === undefined) return [];
-
    if (teishi.simple (input)) input = [input];
 
-   var options = options || {};
+   options = options || {};
    if (options.concurrent === undefined) options.concurrent = 1;
 
-   var index = 0, done = 0, keys = dale.keys (input), results = [], errored;
+   var index = 0, keys = dale.keys (input), results = [], error;
 
-   var next = async function () {
-      if (errored) return;
-      var i = index++;
-      try {
-         results [keys [i]] = await fun (input [keys [i]], keys [i]);
-         done++;
-         if (index < keys.length) next ();
-      }
-      catch (error) {
-         if (errored) return;
-         errored = true;
-         if (options.catch) options.catch (error);
-         else               throw new Error (error);
+   var worker = async function () {
+      while (true) {
+         if (error) return;
+         var i = index++;
+         if (i >= keys.length) return;
+
+         try {
+            results [keys [i]] = await fun (input [keys [i]], keys [i]);
+         }
+         catch (Error) {
+            if (error) return;
+            error = Error;
+            throw Error;
+         }
       }
    }
 
-   dale.go (dale.times (Math.min (keys.length, options.concurrent)), next);
+   var workers = dale.go (dale.times (Math.min (keys.length, options.concurrent)), worker);
 
-   while (done < keys.length) {
-      if (errored) return;
-      await sleep (1);
+   try {
+      await Promise.all (workers);
+   }
+   catch (error) {
+      if (options.catch) options.catch (error);
+      else               throw error;
    }
 
    return results;
